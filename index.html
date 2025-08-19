@@ -41,14 +41,15 @@
     </style>
 
     <script>
-      // Helper to show/hide & trigger fade-in animations
       function reveal(ids){
         ids.forEach(id=>{
           const el = document.querySelector(id);
           if(!el) return;
           el.setAttribute('visible', true);
-          // fire any animations that wait for startEvents: show
           el.emit('show');
+          el.querySelectorAll('*').forEach(child=>{
+            if (child.emit) child.emit('show');
+          });
         });
       }
       function conceal(ids){
@@ -63,36 +64,38 @@
       AFRAME.registerComponent('mytarget', {
         init: function (){
           const el = this.el;
-
-          // Clickable social icons
-          ['#icon-insta','#icon-linkedin','#icon-discord','#icon-whatsapp'].forEach((sel, i)=>{
+          [['#icon-insta','https://instagram.com/'],
+           ['#icon-linkedin','https://www.linkedin.com/'],
+           ['#icon-discord','https://discord.com/invite/'],
+           ['#icon-whatsapp','https://wa.me/']]
+          .forEach(([sel,url])=>{
             const node = document.querySelector(sel);
-            if(!node) return;
-            const urls = [
-              'https://instagram.com/',
-              'https://www.linkedin.com/',
-              'https://discord.com/invite/',
-              'https://wa.me/'
-            ];
-            node.addEventListener('click', ()=>openNew(urls[i]));
+            if(node) node.addEventListener('click', ()=>openNew(url));
           });
-
           el.addEventListener('targetFound', ()=>{
-            reveal([
-              '#icons-group',
-              '#rightcol-group',
-              '#model-group'
-            ]);
+            reveal(['#icons-group','#rightcol-group','#model-group']);
+            const vid = document.querySelector('#right-video');
+            if(vid) vid.play();
           });
-
           el.addEventListener('targetLost', ()=>{
-            // keep state tidy on loss
-            conceal([
-              '#icons-group',
-              '#rightcol-group',
-              '#model-group'
-            ]);
+            conceal(['#icons-group','#rightcol-group','#model-group']);
+            const vid = document.querySelector('#right-video');
+            if(vid) vid.pause();
           });
+        }
+      });
+
+      const MODEL_SCALE = {x: 1, y: 1, z: 1};
+      const MODEL_ROTATION = {x: 45, y: -50, z:40};
+      const SPIN_DURATION = 12000;
+
+      document.addEventListener("DOMContentLoaded", ()=>{
+        const model = document.querySelector("#mini-model");
+        if(model){
+          model.setAttribute("scale", `${MODEL_SCALE.x} ${MODEL_SCALE.y} ${MODEL_SCALE.z}`);
+          model.setAttribute("rotation", `${MODEL_ROTATION.x} ${MODEL_ROTATION.y} ${MODEL_ROTATION.z}`);
+          model.setAttribute("animation__spin", 
+            `property: rotation; to: 0 360 0; loop: true; dur: ${SPIN_DURATION}; easing: linear`);
         }
       });
     </script>
@@ -100,12 +103,10 @@
 
   <body>
     <div class="example-container">
-      <!-- Portrait scanner frame -->
       <div id="example-scanning-overlay" class="hidden">
         <div class="inner"><div class="scanline"></div></div>
       </div>
 
-      <!-- Use MindAR smoothing to reduce jitter (kept same as your working version) -->
       <a-scene
         mindar-image="imageTargetSrc: ./assets/targets.mind; showStats: false; uiScanning: #example-scanning-overlay; filterMinCF: 0.1; filterBeta: 10; warmupTolerance: 3; missTolerance: 3;"
         embedded
@@ -114,111 +115,115 @@
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false">
 
-        <!-- Mouse ray for clicking -->
         <a-camera position="0 0 0"
                   look-controls="enabled: false"
                   cursor="fuse: false; rayOrigin: mouse;"
                   raycaster="far: 10000; objects: .clickable">
         </a-camera>
 
-        <!-- Assets: minimal white PNG icons + your right image + your GLB -->
         <a-assets>
-          <!-- White icons -->
-          <img id="igw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/instagram.png">
-          <img id="liw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/linkedin.png">
-          <img id="dcw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/discord.png">
-          <img id="waw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/whatsapp.png">
-
-          <!-- Right-side image (your file is fine here too) -->
+          <img id="igw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/instagram-new.png">
+          <img id="liw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/linkedin.png">
+          <img id="dcw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/discord-logo.png">
+          <img id="waw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/whatsapp.png">
           <img id="side-photo" src="./assets/imagetotrack.png">
-
-          <!-- Your GLB in /assets -->
+          <video id="right-video"
+                 src="./assets/right.mp4"
+                 loop
+                 muted
+                 playsinline
+                 webkit-playsinline
+                 crossorigin="anonymous"></video>
           <a-asset-item id="userModel" src="./assets/light_bulb.glb"></a-asset-item>
         </a-assets>
 
-        <!-- AMBIENT + DIRECTIONAL lights for the 3D model -->
         <a-entity light="type: ambient; intensity: 1.0"></a-entity>
         <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
 
-        <!-- Anchor content to the FIRST target inside targets.mind -->
         <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
 
-          <!-- ===== 1) ICONS along the BOTTOM of the tracked image (now white/minimal) ===== -->
-          <a-entity id="icons-group" visible="false" position="0 -0.48 0.001"
-                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 900; easing: easeOutCubic; startEvents: show">
+          <!-- ICONS with more spacing -->
+          <a-entity id="icons-group" visible="false" position="0 -0.60 0.001"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
             <a-image id="icon-insta" class="clickable"
-                     src="#igw"
-                     position="-0.27 0 0" width="0.12" height="0.12"
-                     opacity="0.95"
-                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
+                     src="#igw" scale="1.4 1.4 1"
+                     position="-0.50 0 0" width="0.20" height="0.20" opacity="0.95"
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
             </a-image>
 
             <a-image id="icon-linkedin" class="clickable"
-                     src="#liw"
-                     position="-0.09 0 0" width="0.12" height="0.12"
-                     opacity="0.95"
-                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:120">
+                     src="#liw" scale="1.4 1.4 1"
+                     position="-0.16 0 0" width="0.20" height="0.20" opacity="0.95"
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:100">
             </a-image>
 
             <a-image id="icon-discord" class="clickable"
-                     src="#dcw"
-                     position="0.09 0 0" width="0.12" height="0.12"
-                     opacity="0.95"
-                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:240">
+                     src="#dcw" scale="1.4 1.4 1"
+                     position="0.18 0 0" width="0.20" height="0.20" opacity="0.95"
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:200">
             </a-image>
 
             <a-image id="icon-whatsapp" class="clickable"
-                     src="#waw"
-                     position="0.27 0 0" width="0.12" height="0.12"
-                     opacity="0.95"
-                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:360">
+                     src="#waw" scale="1.4 1.4 1"
+                     position="0.52 0 0" width="0.20" height="0.20" opacity="0.95"
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:300">
             </a-image>
           </a-entity>
 
-          <!-- ===== 2) RIGHT COLUMN (image at top-right, heading + subtitle directly below) ===== -->
-          <a-entity id="rightcol-group" visible="false" position="0.38 0 0.002"
-                    animation__fade="property: scale; from: 0.8 0.8 0.8; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
+          <!-- RIGHT COLUMN with cropped bigger video -->
+          <a-entity id="rightcol-group" visible="false" position="0.55 0 -0.02"
+                    animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
+
             <a-image id="right-photo"
                      src="#side-photo"
-                     position="0 0.25 0" width="0.38" height="0.51"
+                     position="0 0.45 0" width="0.60" height="0.76"
                      material="transparent:true; opacity:0"
-                     animation__in="property: material.opacity; from: 0; to: 1; dur: 800; easing: easeOutCubic; startEvents: show">
+                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show">
             </a-image>
 
-            <!-- White/minimal text -->
+            <a-video id="right-video-entity"
+                     src="#right-video"
+                     position="0 0.45 0"
+                     width="0.60"
+                     height="0.76"
+                     material="shader: flat; src: #right-video; transparent: true; opacity: 0; repeat: 1.3 1.3; offset: -0.15 0"
+                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show">
+            </a-video>
+
             <a-text id="heading"
-                    value="Your Main Heading"
+                    value="Making Ideas like this Happen, but how?"
                     color="#FFFFFF"
                     align="left"
-                    width="1.6"
-                    position="0  -0.06 0"
+                    width="2.5"
+                    position="0  -0.05 0"
                     anchor="left"
                     opacity="0"
-                    letter-spacing="2"
-                    animation__in="property: opacity; from: 0; to: 1; dur: 700; delay: 150; easing: easeOutCubic; startEvents: show">
+                    letter-spacing="2.5"
+                    wrap-count="28"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show">
             </a-text>
 
             <a-text id="subtitle"
-                    value="Concise subtitle or tagline goes here."
-                    color="#DDDDDD"
+                    value="Click on the icons to learn more about us!"
+                    color="#EEEEEE"
                     align="left"
-                    width="1.6"
-                    position="0  -0.16 0"
+                    width="2.5"
+                    position="0  -0.20 0"
                     anchor="left"
                     opacity="0"
-                    animation__in="property: opacity; from: 0; to: 1; dur: 700; delay: 300; easing: easeOutCubic; startEvents: show">
+                    wrap-count="36"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show">
             </a-text>
           </a-entity>
 
-          <!-- ===== 3) 3D MODEL at the bottom-right (slow auto-rotation) ===== -->
-          <a-entity id="model-group" visible="false" position="0.50 -0.72 0.01"
-                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 900; easing: easeOutCubic; startEvents: show">
+          <!-- 3D MODEL with more spacing -->
+          <a-entity id="model-group" visible="false" position="0.70 -0.95 -0.03"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
             <a-gltf-model id="mini-model"
                           src="#userModel"
-                          rotation="0 0 0"
                           position="0 0 0"
-                          scale="0.18 0.18 0.18"
-                          animation__spin="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
+                          scale="0.35 0.35 0.35"
+                          rotation="0 0 0">
             </a-gltf-model>
           </a-entity>
 
