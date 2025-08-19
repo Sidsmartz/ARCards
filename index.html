@@ -146,17 +146,16 @@
         init: function (){
           const el = this.el;
 
-          // MindAR events-handling style: add click handlers directly to entities
+          // MindAR events-handling style: also bind direct listeners (belt & suspenders)
           const bindings = [
-            ['#icon-insta','https://instagram.com/'],
-            ['#icon-linkedin','https://www.linkedin.com/'],
-            ['#icon-discord','https://discord.com/invite/'],
-            ['#icon-whatsapp','https://wa.me/']
+            ['#icon-insta-hit','https://instagram.com/'],
+            ['#icon-linkedin-hit','https://www.linkedin.com/'],
+            ['#icon-discord-hit','https://discord.com/invite/'],
+            ['#icon-whatsapp-hit','https://wa.me/']
           ];
           bindings.forEach(([sel,url])=>{
             const node = document.querySelector(sel);
             if (node) {
-              // add both: component + direct listener, for maximum reliability
               node.setAttribute('open-link', `url: ${url}; newTab: false`);
               node.addEventListener('click', ()=> { window.location.href = url; });
             }
@@ -227,6 +226,10 @@
           <img id="dcw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/discord-logo.png">
           <img id="waw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/whatsapp.png">
 
+          <!-- Rounded card texture (SVG data URI) used as button background -->
+          <img id="rounded-card" crossorigin="anonymous"
+               src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='260' viewBox='0 0 400 260'><rect x='2' y='2' width='396' height='256' rx='36' ry='36' fill='white' fill-opacity='0.08' stroke='white' stroke-opacity='0.6' stroke-width='4'/></svg>">
+
           <!-- Right-side video (NOTE: autoplay muted; unmute via the in-scene button) -->
           <video id="right-video"
                  src="./assets/right2test.mp4"
@@ -234,7 +237,6 @@
                  preload="auto"
                  autoplay
                  loop
-                 muted
                  playsinline
                  webkit-playsinline></video>
 
@@ -249,39 +251,64 @@
         <!-- Anchor to first target -->
         <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
 
-          <!-- 1) ICONS (more spacing left/right + lower) -->
+          <!-- 1) ICONS (added rounded backgrounds + large hit areas that open links) -->
           <a-entity id="icons-group" visible="false" position="0 -1.30 0.001"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
 
+            <!-- Instagram button bg + hit -->
+            <a-plane src="#rounded-card" position="-0.60 0 -0.01" width="0.36" height="0.24"
+                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
+            <a-plane id="icon-insta-hit" class="clickable" position="-0.60 0 0.01" width="0.36" height="0.24"
+                     color="#fff" opacity="0.001"></a-plane>
+
+            <!-- LinkedIn button bg + hit -->
+            <a-plane src="#rounded-card" position="-0.20 0 -0.01" width="0.36" height="0.24"
+                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
+            <a-plane id="icon-linkedin-hit" class="clickable" position="-0.20 0 0.01" width="0.36" height="0.24"
+                     color="#fff" opacity="0.001"></a-plane>
+
+            <!-- Discord button bg + hit -->
+            <a-plane src="#rounded-card" position="0.20 0 -0.01" width="0.36" height="0.24"
+                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
+            <a-plane id="icon-discord-hit" class="clickable" position="0.20 0 0.01" width="0.36" height="0.24"
+                     color="#fff" opacity="0.001"></a-plane>
+
+            <!-- WhatsApp button bg + hit -->
+            <a-plane src="#rounded-card" position="0.60 0 -0.01" width="0.36" height="0.24"
+                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
+            <a-plane id="icon-whatsapp-hit" class="clickable" position="0.60 0 0.01" width="0.36" height="0.24"
+                     color="#fff" opacity="0.001"></a-plane>
+
+            <!-- Original icons (unchanged), layered above backgrounds -->
             <a-image id="icon-insta" class="clickable"
                      src="#igw" scale="1.4 1.4 1"
-                     position="-0.60 0 0" width="0.16" height="0.16" opacity="0.95">
+                     position="-0.60 0 0.02" width="0.16" height="0.16" opacity="0.95">
             </a-image>
 
             <a-image id="icon-linkedin" class="clickable"
                      src="#liw" scale="1.4 1.4 1"
-                     position="-0.20 0 0" width="0.16" height="0.16" opacity="0.95">
+                     position="-0.20 0 0.02" width="0.16" height="0.16" opacity="0.95">
             </a-image>
 
             <a-image id="icon-discord" class="clickable"
                      src="#dcw" scale="1.4 1.4 1"
-                     position="0.20 0 0" width="0.16" height="0.16" opacity="0.95">
+                     position="0.20 0 0.02" width="0.16" height="0.16" opacity="0.95">
             </a-image>
 
             <a-image id="icon-whatsapp" class="clickable"
                      src="#waw" scale="1.4 1.4 1"
-                     position="0.60 0 0" width="0.16" height="0.16" opacity="0.95">
+                     position="0.60 0 0.02" width="0.16" height="0.16" opacity="0.95">
             </a-image>
           </a-entity>
 
-          <!-- 2) RIGHT COLUMN (further left to increase separation from model) -->
+          <!-- 2) RIGHT COLUMN -->
           <a-entity id="rightcol-group" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
 
             <!-- 16:9 Video with audio support -->
             <a-video id="right-video-entity"
                      src="#right-video"
-                     position="0.60 0.45 0"
+                     position="1.2 0.45 0"
                      width="1.60"
                      height="0.90"
                      material="shader: flat; src: #right-video; transparent: true; opacity: 0;"
@@ -290,16 +317,6 @@
             </a-video>
 
             <!-- Tap for audio button (click to unmute video + resume audio context) -->
-            <a-plane id="tap-audio"
-                     position="0.60 -0.05 0.01"
-                     width="0.90" height="0.18"
-                     color="#000" opacity="0.55"
-                     class="clickable"
-                     unmute-audio>
-              <a-entity
-                troika-text="value: Tap for audio; anchor: center; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
-                position="0 0 0.01"></a-entity>
-            </a-plane>
 
             <!-- Your original A-Frame texts (kept intact) -->
             <a-text id="heading"
@@ -307,7 +324,7 @@
                     color="#FFFFFF"
                     align="left"
                     width="1.8"
-                    position="0  -0.45 0"
+                    position="0.4  -0.3 0"
                     anchor="left"
                     opacity="0"
                     letter-spacing="2"
@@ -316,11 +333,12 @@
             </a-text>
 
             <a-text id="subtitle"
-                    value="Click on the icons to learn more about us!"
+                    value="Follow us on social media to know more!"
                     color="#EEEEEE"
                     align="left"
                     width="1.8"
-                    position="0  -0.95 0"
+                    position="0.4  -0.725 0"
+
                     anchor="left"
                     opacity="0"
                     wrap-count="24"
