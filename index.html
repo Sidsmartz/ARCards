@@ -23,8 +23,7 @@
       #example-scanning-overlay{
         display:flex; align-items:center; justify-content:center;
         position:absolute; inset:0; background:transparent; z-index:2;
-        /* never block mouse/touch so icons are clickable behind it */
-        pointer-events:none;
+        pointer-events:none; /* never block interactions */
       }
       #example-scanning-overlay.hidden{ display:none; }
       #example-scanning-overlay .inner{
@@ -44,25 +43,28 @@
       }
       #example-scanning-overlay .scanline{
         position:absolute; left:0; width:100%; height:8px; background:white; opacity:0.75;
-        animation:scan 2s linear infinite;
-        pointer-events:none;
+        animation:scan 2s linear infinite; pointer-events:none;
       }
       @keyframes scan{ 0%,100%{ top:0% } 50%{ top:calc(100% - 8px) } }
+
+      /* Footer */
+      .footer-hint{
+        position:fixed; left:0; right:0; bottom:10px; text-align:center; z-index:5;
+        font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        font-size: 14px; color:#e5e7eb; text-shadow: 0 1px 2px rgba(0,0,0,.4);
+        pointer-events:auto;
+      }
+      .footer-hint a{ color:#3b82f6; text-decoration:underline; }
     </style>
 
     <script>
-      // Register component to sync video and (optional) external audio element
+      // Video sync helper (kept)
       AFRAME.registerComponent('play-video', {
         init: function() {
-          // the <video> element backing the <a-video>
           const mat = this.el.getObject3D('mesh') && this.el.components.material && this.el.components.material.material;
-          this.video = (mat && mat.map && mat.map.image) || document.getElementById('right-video');
-
-          // If you keep a separate <audio>, you can sync it here (optional)
-          this.audio = document.getElementById('video-audio'); // may not exist; safe to ignore
-
+          this.video = (mat && mat.map && mat.map.image) || document.getElementById(this.data?.videoId || 'right-video');
+          this.audio = document.getElementById('video-audio'); // optional
           if (!this.video) return;
-
           this.video.addEventListener('play', () => {
             if (this.audio && this.audio.paused) {
               this.audio.currentTime = this.video.currentTime;
@@ -76,133 +78,146 @@
         }
       });
 
-      // Simple link-opener that works with A-Frame cursor/raycaster
+      // Clickable link on entities
       AFRAME.registerComponent('open-link', {
         schema: { url: {type: 'string'}, newTab: {type: 'boolean', default: true} },
         init() {
-          this.onClick = () => {
+          const go = () => {
             if (!this.data.url) return;
-            try {
-              // open in same tab improves reliability on mobile
-              this.data.newTab ? window.open(this.data.url, '_blank') : (window.location.href = this.data.url);
-            } catch(e) { console.warn('open-link blocked:', e); }
+            try { this.data.newTab ? window.open(this.data.url, '_blank') : (window.location.href = this.data.url); }
+            catch(e) { console.warn('open-link blocked:', e); }
           };
+          this.onClick = (e)=>{ e.stopPropagation(); go(); };
+          this.onDown  = (e)=>{ e.stopPropagation(); go(); };
           this.el.addEventListener('click', this.onClick);
+          this.el.addEventListener('touchstart', this.onDown, {passive:true});
+          this.el.addEventListener('mousedown', this.onDown);
         },
-        remove() { this.el.removeEventListener('click', this.onClick); }
+        remove() {
+          this.el.removeEventListener('click', this.onClick);
+          this.el.removeEventListener('touchstart', this.onDown);
+          this.el.removeEventListener('mousedown', this.onDown);
+        }
       });
 
-      // User-gesture audio unlocker for Chrome/iOS
-      AFRAME.registerComponent('unmute-audio', {
+      // Bridge: ensure window.open runs in a trusted gesture (desktop + iOS Safari)
+      AFRAME.registerSystem('open-link-bridge', {
         init() {
-          const resumeAudio = async () => {
-            try {
-              const AC = window.AudioContext || window.webkitAudioContext;
-              const ctx = AFRAME.audioContext || (AFRAME.audioContext = new AC());
-              if (ctx && ctx.state !== 'running' && ctx.resume) await ctx.resume();
-            } catch(e) {}
-          };
-          this.onClick = async () => {
-            await resumeAudio();
+          const scene = this.sceneEl;
+          scene.addEventListener('loaded', () => {
+            const cam = scene.camera && scene.camera.el;
+            if (!cam) return;
 
-            // Unmute the asset video and play with sound
-            const v = document.getElementById('right-video');
-            if (v) {
-              try {
-                v.muted = false;
-                v.play().catch(()=>{});
-              } catch(e) {}
-            }
-            // hide button
-            this.el.setAttribute('visible', false);
-          };
-          this.el.addEventListener('click', this.onClick);
-        },
-        remove(){ this.el.removeEventListener('click', this.onClick); }
+            const triggerFromRaycaster = () => {
+              const rc = cam.components.raycaster;
+              if (!rc) return;
+              const hits = rc.intersections || [];
+              for (let i = 0; i < hits.length; i++) {
+                let el = hits[i].object && hits[i].object.el;
+                while (el && !el.components && el.parentEl) el = el.parentEl;
+                if (el && el.components && el.components['open-link']) {
+                  const data = el.components['open-link'].data;
+                  try { data.newTab ? window.open(data.url, '_blank') : (window.location.href = data.url); } catch(e) {}
+                  break;
+                }
+              }
+            };
+
+            cam.addEventListener('click', triggerFromRaycaster);
+            const attachDOM = () => {
+              const canvas = scene.canvas;
+              if (!canvas) return;
+              canvas.addEventListener('mouseup', triggerFromRaycaster);
+              canvas.addEventListener('touchend', triggerFromRaycaster, {passive:true});
+            };
+            if (scene.hasLoaded) attachDOM(); else scene.addEventListener('render-target-loaded', attachDOM);
+          });
+        }
       });
 
-      // Reveal/Hide helpers (unchanged)
-      function reveal(ids){
-        ids.forEach(id=>{
-          const el = document.querySelector(id);
-          if(!el) return;
-          el.setAttribute('visible', true);
-          el.emit('show');
-          el.querySelectorAll('*').forEach(child=>{
-            if (child.emit) child.emit('show');
-          });
-        });
-      }
-      function conceal(ids){
-        ids.forEach(id=>{
-          const el = document.querySelector(id);
-          if(!el) return;
-          el.setAttribute('visible', false);
-        });
-      }
-      const openNew = (url)=> window.open(url, '_blank');
-
+      // Target controller that reveals groups for each anchor; accepts per-anchor selectors
       AFRAME.registerComponent('mytarget', {
+        schema: {
+          groups: {default: ''},   // comma-separated selectors to show/hide
+          video:  {default: ''},   // selector for the <video> asset to play/pause
+          tHead:  {default: ''},   // troika heading selector
+          tSub:   {default: ''}    // troika subtitle selector
+        },
         init: function (){
           const el = this.el;
+          const url = 'https://softmind.tech';
+          const groups = (this.data.groups || '#icons-group,#rightcol-group,#model-group').split(',').map(s=>s.trim());
+          const vidSel = this.data.video || '#right-video';
 
-          // MindAR events-handling style: also bind direct listeners (belt & suspenders)
-          const bindings = [
-            ['#icon-insta-hit','https://instagram.com/'],
-            ['#icon-linkedin-hit','https://www.linkedin.com/'],
-            ['#icon-discord-hit','https://discord.com/invite/'],
-            ['#icon-whatsapp-hit','https://wa.me/']
-          ];
-          bindings.forEach(([sel,url])=>{
-            const node = document.querySelector(sel);
-            if (node) {
-              node.setAttribute('open-link', `url: ${url}; newTab: false`);
-              node.addEventListener('click', ()=> { window.location.href = url; });
-            }
+          // Make key pieces clickable to the same link
+          groups.forEach(sel=>{
+            const parent = document.querySelector(sel);
+            if (!parent) return;
+            parent.querySelectorAll('.clickable, a-video, a-text, a-entity[troika-text], a-gltf-model, a-plane').forEach(node=>{
+              if (!node.hasAttribute('open-link')) node.setAttribute('open-link', `url: ${url}; newTab: true`);
+            });
           });
 
+          const playVideo = () => {
+            const v = document.querySelector(vidSel);
+            if (v) { try { v.play().catch(()=>{}); } catch(e){} }
+          };
+          const pauseVideo = () => {
+            const v = document.querySelector(vidSel);
+            if (v) { try { v.pause(); } catch(e){} }
+          };
+
           el.addEventListener('targetFound', ()=>{
-            reveal(['#icons-group','#rightcol-group','#model-group']);
-            const vid = document.querySelector('#right-video');
-            if(vid) { vid.play().catch(()=>{}); }
-            const th = document.querySelector('#troika-heading');
-            const ts = document.querySelector('#troika-subtitle');
+            groups.forEach(sel=>{
+              const g = document.querySelector(sel);
+              if (g) { g.setAttribute('visible', true); g.emit('show'); g.querySelectorAll('*').forEach(c=>c.emit && c.emit('show')); }
+            });
+            playVideo();
+            const th = this.data.tHead && document.querySelector(this.data.tHead);
+            const ts = this.data.tSub  && document.querySelector(this.data.tSub);
             if (th) th.emit('show');
             if (ts) ts.emit('show');
           });
           el.addEventListener('targetLost', ()=>{
-            conceal(['#icons-group','#rightcol-group','#model-group']);
-            const vid = document.querySelector('#right-video');
-            if(vid) vid.pause();
+            groups.forEach(sel=>{
+              const g = document.querySelector(sel);
+              if (g) g.setAttribute('visible', false);
+            });
+            pauseVideo();
           });
         }
       });
 
-      // Configurable GLB scale & rotation
+      // Spin model (kept)
       const MODEL_SCALE = {x: 1, y: 1, z: 1};
       const MODEL_ROTATION = {x: 45, y: -50, z:40};
-      const SPIN_DURATION = 12000; // ms for full rotation
+      const SPIN_DURATION = 12000;
 
       document.addEventListener("DOMContentLoaded", ()=>{
-        const model = document.querySelector("#mini-model");
-        if(model){
-          model.setAttribute("scale", `${MODEL_SCALE.x} ${MODEL_SCALE.y} ${MODEL_SCALE.z}`);
-          model.setAttribute("rotation", `${MODEL_ROTATION.x} ${MODEL_ROTATION.y} ${MODEL_ROTATION.z}`);
-          model.setAttribute("animation__spin",
-            `property: rotation; to: 0 360 0; loop: true; dur: ${SPIN_DURATION}; easing: linear`);
-        }
+        ['#mini-model-0','#mini-model-1','#mini-model-2'].forEach(id=>{
+          const model = document.querySelector(id);
+          if(model){
+            model.setAttribute("scale", `${MODEL_SCALE.x} ${MODEL_SCALE.y} ${MODEL_SCALE.z}`);
+            model.setAttribute("rotation", `${MODEL_ROTATION.x} ${MODEL_ROTATION.y} ${MODEL_ROTATION.z}`);
+            model.setAttribute("animation__spin", `property: rotation; to: 0 360 0; loop: true; dur: ${SPIN_DURATION}; easing: linear`);
+          }
+        });
       });
     </script>
   </head>
 
   <body>
     <div class="example-container">
+      <!-- Footer hint -->
+      <div class="footer-hint">
+        If clicking doesn't work, please <a href="https://softmind.tech" target="_blank" rel="noopener noreferrer">click here</a>.
+      </div>
+
       <!-- Portrait scanner frame -->
       <div id="example-scanning-overlay" class="hidden">
         <div class="inner"><div class="scanline"></div></div>
       </div>
 
-      <!-- Keep your working MindAR smoothing values -->
       <a-scene
         mindar-image="imageTargetSrc: ./assets/targets.mind; showStats: false; uiScanning: #example-scanning-overlay; filterMinCF: 0.3; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 8;"
         embedded
@@ -211,174 +226,240 @@
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false">
 
-        <!-- Mouse ray for clicking (MindAR pattern: cursor + raycaster on camera) -->
+        <!-- Camera with mouse/touch cursor -->
         <a-camera position="0 0 0"
                   look-controls="enabled: false"
-                  cursor="fuse: false; rayOrigin: mouse;"
+                  cursor="rayOrigin: mouse; fuse: false; downEvents: mousedown, touchstart; upEvents: mouseup, touchend"
                   raycaster="near: 0.001; far: 10000; interval: 0; objects: .clickable">
         </a-camera>
 
-        <!-- Assets: white PNG icons + video + your GLB -->
+        <!-- Assets -->
         <a-assets>
-          <!-- White icons (reliable PNGs) -->
-          <img id="igw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/instagram-new.png">
-          <img id="liw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/linkedin.png">
-          <img id="dcw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/discord-logo.png">
-          <img id="waw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/whatsapp.png">
+          <!-- Icons -->
+          <img id="igw"  crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/instagram-new.png">
+          <img id="liw"  crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/linkedin.png">
+          <img id="dcw"  crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/discord-logo.png">
+          <img id="waw"  crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/whatsapp.png">
 
-          <!-- Rounded card texture (SVG data URI) used as button background -->
-          <img id="rounded-card" crossorigin="anonymous"
-               src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='260' viewBox='0 0 400 260'><rect x='2' y='2' width='396' height='256' rx='36' ry='36' fill='white' fill-opacity='0.08' stroke='white' stroke-opacity='0.6' stroke-width='4'/></svg>">
+          <!-- Rounded bar -->
+          <img id="rounded-wide" crossorigin="anonymous"
+               src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='300' viewBox='0 0 1200 300'><rect x='3' y='3' width='1194' height='294' rx='50' ry='50' fill='white' fill-opacity='0.08' stroke='white' stroke-opacity='0.6' stroke-width='6'/></svg>">
 
-          <!-- Right-side video (NOTE: autoplay muted; unmute via the in-scene button) -->
-          <video id="right-video"
-                 src="./assets/right2test.mp4"
-                 crossorigin="anonymous"
-                 preload="auto"
-                 autoplay
-                 loop
-                 playsinline
-                 webkit-playsinline></video>
+          <!-- Videos per target (use unique files if available) -->
+          <video id="right-video-0" src="./assets/right2test.mp4"  crossorigin="anonymous" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
+          <video id="right-video-1" src="./assets/right2test.mp4"  crossorigin="anonymous" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
+          <video id="right-video-2" src="./assets/right2test.mp4"  crossorigin="anonymous" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
 
-          <!-- Your GLB -->
-          <a-asset-item id="userModel" src="./assets/light_bulb.glb" crossorigin="anonymous"></a-asset-item>
+          <!-- Models per target (use unique files if available) -->
+          <a-asset-item id="userModel-0" src="./assets/light_bulb.glb" crossorigin="anonymous"></a-asset-item>
+          <a-asset-item id="userModel-1" src="./assets/light_bulb.glb" crossorigin="anonymous"></a-asset-item>
+          <a-asset-item id="userModel-2" src="./assets/batman_logo.glb" crossorigin="anonymous"></a-asset-item>
         </a-assets>
 
         <!-- Lights -->
         <a-entity light="type: ambient; intensity: 1.0"></a-entity>
         <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
 
-        <!-- Anchor to first target -->
-        <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
+        <!-- ================= TARGET 0 (Theme: Blue) ================= -->
+        <a-entity mytarget="groups: #icons-group-0,#rightcol-group-0,#model-group-0; video: #right-video-0; tHead: #troika-heading-0; tSub: #troika-subtitle-0"
+                  mindar-image-target="targetIndex: 0">
 
-          <!-- 1) ICONS (added rounded backgrounds + large hit areas that open links) -->
-          <a-entity id="icons-group" visible="false" position="0 -1.30 0.001"
+          <!-- Global click-catcher (behind everything) -->
+          <a-plane position="0 0 -0.2" width="6" height="6"
+                   class="clickable"
+                   material="transparent: true; opacity: 0.00001; side: double"
+                   open-link="url: https://softmind.tech; newTab: true"></a-plane>
+
+          <!-- Icons bar (normal size) -->
+          <a-entity id="icons-group-0" visible="false" position="0 -1.30 0.001"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
+            <a-plane src="#rounded-wide" position="0 0 -0.02" width="2.20" height="0.52"
+                     class="clickable"
+                     material="shader: flat; transparent: true; alphaTest: 0.01; color: #3B82F6; opacity: 0.15"
+                     open-link="url: https://softmind.tech; newTab: true"></a-plane>
 
-            <!-- Instagram button bg + hit -->
-            <a-plane src="#rounded-card" position="-0.60 0 -0.01" width="0.36" height="0.24"
-                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
-            <a-plane id="icon-insta-hit" class="clickable" position="-0.60 0 0.01" width="0.36" height="0.24"
-                     color="#fff" opacity="0.001"></a-plane>
-
-            <!-- LinkedIn button bg + hit -->
-            <a-plane src="#rounded-card" position="-0.20 0 -0.01" width="0.36" height="0.24"
-                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
-            <a-plane id="icon-linkedin-hit" class="clickable" position="-0.20 0 0.01" width="0.36" height="0.24"
-                     color="#fff" opacity="0.001"></a-plane>
-
-            <!-- Discord button bg + hit -->
-            <a-plane src="#rounded-card" position="0.20 0 -0.01" width="0.36" height="0.24"
-                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
-            <a-plane id="icon-discord-hit" class="clickable" position="0.20 0 0.01" width="0.36" height="0.24"
-                     color="#fff" opacity="0.001"></a-plane>
-
-            <!-- WhatsApp button bg + hit -->
-            <a-plane src="#rounded-card" position="0.60 0 -0.01" width="0.36" height="0.24"
-                     material="shader: flat; transparent: true; alphaTest: 0.01"></a-plane>
-            <a-plane id="icon-whatsapp-hit" class="clickable" position="0.60 0 0.01" width="0.36" height="0.24"
-                     color="#fff" opacity="0.001"></a-plane>
-
-            <!-- Original icons (unchanged), layered above backgrounds -->
-            <a-image id="icon-insta" class="clickable"
-                     src="#igw" scale="1.4 1.4 1"
-                     position="-0.60 0 0.02" width="0.16" height="0.16" opacity="0.95">
-            </a-image>
-
-            <a-image id="icon-linkedin" class="clickable"
-                     src="#liw" scale="1.4 1.4 1"
-                     position="-0.20 0 0.02" width="0.16" height="0.16" opacity="0.95">
-            </a-image>
-
-            <a-image id="icon-discord" class="clickable"
-                     src="#dcw" scale="1.4 1.4 1"
-                     position="0.20 0 0.02" width="0.16" height="0.16" opacity="0.95">
-            </a-image>
-
-            <a-image id="icon-whatsapp" class="clickable"
-                     src="#waw" scale="1.4 1.4 1"
-                     position="0.60 0 0.02" width="0.16" height="0.16" opacity="0.95">
-            </a-image>
+            <a-image src="#igw" position="-0.36 0 0.05" width="0.20" height="0.20" opacity="0.95"
+                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#liw" position="-0.12 0 0.05" width="0.20" height="0.20" opacity="0.95"
+                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#dcw" position="0.12 0 0.05"  width="0.20" height="0.20" opacity="0.95"
+                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#waw" position="0.36 0 0.05"  width="0.20" height="0.20" opacity="0.95"
+                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
           </a-entity>
 
-          <!-- 2) RIGHT COLUMN -->
-          <a-entity id="rightcol-group" visible="false" position="0.30 0 -0.02"
+          <!-- Right column -->
+          <a-entity id="rightcol-group-0" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
-
-            <!-- 16:9 Video with audio support -->
-            <a-video id="right-video-entity"
-                     src="#right-video"
-                     position="1.2 0.45 0"
-                     width="1.60"
-                     height="0.90"
-                     material="shader: flat; src: #right-video; transparent: true; opacity: 0;"
+            <a-video src="#right-video-0" position="1.2 0.45 0" width="1.60" height="0.90"
+                     class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                     material="shader: flat; transparent: true; opacity: 0;"
                      animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
-                     play-video>
-            </a-video>
+                     play-video></a-video>
 
-            <!-- Tap for audio button (click to unmute video + resume audio context) -->
+            <a-text value="Making Ideas like this Happen, but how?" color="#FFFFFF"
+                    align="left" width="1.8" position="0.4 -0.35 0" anchor="left" opacity="0"
+                    letter-spacing="2" wrap-count="20"
+                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show"></a-text>
 
-            <!-- Your original A-Frame texts (kept intact) -->
-            <a-text id="heading"
-                    value="Making Ideas like this Happen, but how?"
-                    color="#FFFFFF"
-                    align="left"
-                    width="1.8"
-                    position="0.4  -0.3 0"
-                    anchor="left"
-                    opacity="0"
-                    letter-spacing="2"
-                    wrap-count="20"
-                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show">
-            </a-text>
-
-            <a-text id="subtitle"
-                    value="Follow us on social media to know more!"
-                    color="#EEEEEE"
-                    align="left"
-                    width="1.8"
-                    position="0.4  -0.725 0"
-
-                    anchor="left"
-                    opacity="0"
+            <a-text value="Click on the icons to learn more about us!" color="#93C5FD"
+                    align="left" width="1.8" position="0.4 -0.75 0" anchor="left" opacity="0"
                     wrap-count="24"
-                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show">
-            </a-text>
+                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show"></a-text>
 
-            <!-- Troika text using Poppins (added; originals preserved) -->
-            <a-entity id="troika-heading"
-                      troika-text="value: Making Ideas like this Happen, but how?;
-                                   anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.07;
-                                   font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
-                      position="0 -0.40 0"
-                      visible="true"
-                      opacity="0"
-                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show">
-            </a-entity>
+            <a-entity id="troika-heading-0"
+                      troika-text="value: Making Ideas like this Happen, but how?; anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
+                      position="0 -0.40 0" visible="true" opacity="0"
+                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show"></a-entity>
 
-            <a-entity id="troika-subtitle"
-                      troika-text="value: Click on the icons to learn more about us!;
-                                   anchor: left; maxWidth: 1.6; color: #DDDDDD; fontSize: 0.055;
-                                   font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
-                      position="0 -0.90 0"
-                      visible="true"
-                      opacity="0"
-                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show">
-            </a-entity>
+            <a-entity id="troika-subtitle-0"
+                      troika-text="value: Click on the icons to learn more about us!; anchor: left; maxWidth: 1.6; color: #93C5FD; fontSize: 0.058; font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
+                      position="0 -0.90 0" visible="true" opacity="0"
+                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show"></a-entity>
           </a-entity>
 
-          <!-- 3) 3D MODEL (pushed further right & down for maximum separation) -->
-          <a-entity id="model-group" visible="false" position="2.00 -1.50 -0.03"
+          <!-- Model below the card -->
+          <a-entity id="model-group-0" visible="false" position="0 -1.05 -0.03"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
-            <a-gltf-model id="mini-model"
-                          src="#userModel"
-                          position="0 0 0"
-                          scale="0.28 0.28 0.28"
-                          rotation="0 0 0">
-            </a-gltf-model>
+            <a-gltf-model id="mini-model-0" src="#userModel-0" position="0 -1 0" scale="0.28 0.28 0.28" rotation="0 0 0"
+                          class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-gltf-model>
+          </a-entity>
+        </a-entity>
+
+        <!-- ================= TARGET 1 (Theme: Green) ================= -->
+        <a-entity mytarget="groups: #icons-group-1,#rightcol-group-1,#model-group-1; video: #right-video-1; tHead: #troika-heading-1; tSub: #troika-subtitle-1"
+                  mindar-image-target="targetIndex: 1">
+
+          <a-plane position="0 0 -0.2" width="6" height="6"
+                   class="clickable" material="transparent: true; opacity: 0.00001; side: double"
+                   open-link="url: https://softmind.tech; newTab: true"></a-plane>
+
+          <a-entity id="icons-group-1" visible="false" position="0 -1.30 0.001"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
+            <a-plane src="#rounded-wide" position="0 0 -0.02" width="2.20" height="0.52"
+                     class="clickable"
+                     material="shader: flat; transparent: true; alphaTest: 0.01; color: #EF4444; opacity: 0.15"
+                     open-link="url: https://softmind.tech; newTab: true"></a-plane>
+
+            <a-image src="#igw" position="-0.36 0 0.05" width="0.20" height="0.20" opacity="0.95"
+                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#liw" position="-0.12 0 0.05" width="0.20" height="0.20" opacity="0.95"
+                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#dcw" position="0.12 0 0.05"  width="0.20" height="0.20" opacity="0.95"
+                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#waw" position="0.36 0 0.05"  width="0.20" height="0.20" opacity="0.95"
+                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
           </a-entity>
 
+          <a-entity id="rightcol-group-1" visible="false" position="0.30 0 -0.02"
+                    animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
+            <a-video src="#right-video-1" position="1.2 0.45 0" width="1.60" height="0.90"
+                     class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                     material="shader: flat; transparent: true; opacity: 0;"
+                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
+                     play-video></a-video>
+
+            <a-text value="Making Ideas like this Happen, but how?" color="#FFFFFF"
+                    align="left" width="1.8" position="0.4 -0.35 0" anchor="left" opacity="0"
+                    letter-spacing="2" wrap-count="20"
+                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show"></a-text>
+
+            <a-text value="Click on the icons to learn more about us!" color="#FCA5A5"
+                    align="left" width="1.8" position="0.4 -0.75 0" anchor="left" opacity="0"
+                    wrap-count="24"
+                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show"></a-text>
+
+            <a-entity id="troika-heading-1"
+                      troika-text="value: Making Ideas like this Happen, but how?; anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
+                      position="0 -0.40 0" visible="true" opacity="0"
+                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show"></a-entity>
+
+            <a-entity id="troika-subtitle-1"
+                      troika-text="value: Click on the icons to learn more about us!; anchor: left; maxWidth: 1.6; color: #FCA5A5; fontSize: 0.058; font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
+                      position="0 -0.90 0" visible="true" opacity="0"
+                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show"></a-entity>
+          </a-entity>
+
+          <a-entity id="model-group-1" visible="false" position="0 -1.05 -0.03"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
+            <a-gltf-model id="mini-model-1" src="#userModel-1" position="0 -1 0" scale="0.28 0.28 0.28" rotation="0 0 0"
+                          class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-gltf-model>
+          </a-entity>
         </a-entity>
+
+        <!-- ================= TARGET 2 (Theme: Purple) ================= -->
+        <a-entity mytarget="groups: #icons-group-2,#rightcol-group-2,#model-group-2; video: #right-video-2; tHead: #troika-heading-2; tSub: #troika-subtitle-2"
+                  mindar-image-target="targetIndex: 2">
+
+          <a-plane position="0 0 -0.2" width="6" height="6"
+                   class="clickable" material="transparent: true; opacity: 0.00001; side: double"
+                   open-link="url: https://softmind.tech; newTab: true"></a-plane>
+
+          <a-entity id="icons-group-2" visible="false" position="0 -1.30 0.001"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
+            <a-plane src="#rounded-wide" position="0 0 -0.02" width="2.20" height="0.52"
+                     class="clickable"
+                     material="shader: flat; transparent: true; alphaTest: 0.01; color: #F97316; opacity: 0.15"
+                     open-link="url: https://softmind.tech; newTab: true"></a-plane>
+
+            <a-image src="#igw" position="-0.36 0 0.05" width="0.20" height="0.20" opacity="0.95"
+                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#liw" position="-0.12 0 0.05" width="0.20" height="0.20" opacity="0.95"
+                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#dcw" position="0.12 0 0.05"  width="0.20" height="0.20" opacity="0.95"
+                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+            <a-image src="#waw" position="0.36 0 0.05"  width="0.20" height="0.20" opacity="0.95"
+                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+          </a-entity>
+
+          <a-entity id="rightcol-group-2" visible="false" position="0.30 0 -0.02"
+                    animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
+            <a-video src="#right-video-2" position="1.2 0.45 0" width="1.60" height="0.90"
+                     class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                     material="shader: flat; transparent: true; opacity: 0;"
+                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
+                     play-video></a-video>
+
+            <a-text value="Making Ideas like this Happen, but how?" color="#FFFFFF"
+                    align="left" width="1.8" position="0.4 -0.35 0" anchor="left" opacity="0"
+                    letter-spacing="2" wrap-count="20"
+                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show"></a-text>
+
+            <a-text value="Click on the icons to learn more about us!" color="FDBA74"
+                    align="left" width="1.8" position="0.4 -0.75 0" anchor="left" opacity="0"
+                    wrap-count="24"
+                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show"></a-text>
+
+            <a-entity id="troika-heading-2"
+                      troika-text="value: Making Ideas like this Happen, but how?; anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
+                      position="0 -0.40 0" visible="true" opacity="0"
+                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show"></a-entity>
+
+            <a-entity id="troika-subtitle-2"
+                      troika-text="value: Click on the icons to learn more about us!; anchor: left; maxWidth: 1.6; color: #FDBA74; fontSize: 0.058; font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
+                      position="0 -0.90 0" visible="true" opacity="0"
+                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show"></a-entity>
+          </a-entity>
+
+          <a-entity id="model-group-2" visible="false" position="0 -1.05 -0.03"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
+            <a-gltf-model id="mini-model-2" src="#userModel-2" position="0 -1 0" scale="0.28 0.28 0.28" rotation="0 0 0"
+                          class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-gltf-model>
+          </a-entity>
+        </a-entity>
+
       </a-scene>
     </div>
   </body>
