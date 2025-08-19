@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      #startButton {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 15px 30px;
+        font-size: 18px;
+        z-index: 1000;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="startButton">Start AR Experience</button>
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind;"
+             vr-mode-ui="enabled: false"
+             device-orientation-permission-ui="enabled: false"
+             id="ar-scene"
+             style="display: none;">
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a-entity mindar-image-target="targetIndex: 0">
+        <a-video id="ar-video"
+                 src="cievideo.mp4"
+                 position="0 0 0"
+                 height="0.552"
+                 width="1"
+                 rotation="0 0 0"
+                 autoplay="true"
+                 loop="true"
+                 muted="true"
+                 playsinline="true">
+        </a-video>
+      </a-entity>
+    </a-scene>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const startButton = document.getElementById('startButton');
+        const arScene = document.getElementById('ar-scene');
+        const arVideo = document.getElementById('ar-video');
+        
+        startButton.addEventListener('click', async () => {
+          try {
+            // Start audio context on user gesture
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            await audioContext.resume();
+            
+            // Show AR scene and hide button
+            arScene.style.display = 'block';
+            startButton.style.display = 'none';
+            
+            // Unmute video after user interaction
+            if (arVideo) {
+              arVideo.components.material.material.map.image.muted = false;
+              arVideo.setAttribute('muted', 'false');
+              
+              // Play the video
+              const videoEl = arVideo.components.material.material.map.image;
+              videoEl.play().catch(e => console.error('Video play failed:', e));
+            }
+          } catch (error) {
+            console.error('Error initializing audio:', error);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

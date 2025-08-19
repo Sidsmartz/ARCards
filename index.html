@@ -11,7 +11,7 @@
 
     <!-- Poppins (for troika-text) -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;700&display=swap" rel="stylesheet">
-    <!-- Troika text for true webfonts in A-Frame (adds, doesn’t replace) -->
+    <!-- Troika text for true webfonts in A-Frame -->
     <script src="https://unpkg.com/troika-three-text@0.49.0/dist/troika-three-text.min.js"></script>
     <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
@@ -23,6 +23,8 @@
       #example-scanning-overlay{
         display:flex; align-items:center; justify-content:center;
         position:absolute; inset:0; background:transparent; z-index:2;
+        /* never block mouse/touch so icons are clickable behind it */
+        pointer-events:none;
       }
       #example-scanning-overlay.hidden{ display:none; }
       #example-scanning-overlay .inner{
@@ -38,16 +40,91 @@
           linear-gradient(to top,    white 8px, transparent 8px) 0 100%,
           linear-gradient(to top,    white 8px, transparent 8px) 100% 100%;
         background-repeat:no-repeat; background-size:36px 36px;
+        pointer-events:none;
       }
       #example-scanning-overlay .scanline{
         position:absolute; left:0; width:100%; height:8px; background:white; opacity:0.75;
         animation:scan 2s linear infinite;
+        pointer-events:none;
       }
       @keyframes scan{ 0%,100%{ top:0% } 50%{ top:calc(100% - 8px) } }
     </style>
 
     <script>
-      // Reveal now also emits 'show' to all children so their animations fire.
+      // Keep video & (optional) external audio in sync
+      AFRAME.registerComponent('play-video', {
+        init: function() {
+          // the <video> element backing the <a-video>
+          const mat = this.el.getObject3D('mesh') && this.el.components.material && this.el.components.material.material;
+          this.video = (mat && mat.map && mat.map.image) || document.getElementById('right-video');
+          this.audio = document.getElementById('video-audio'); // optional
+
+          if (!this.video) return;
+
+          this.video.addEventListener('play', () => {
+            if (this.audio && this.audio.paused) {
+              this.audio.currentTime = this.video.currentTime;
+              this.audio.play().catch(()=>{});
+            }
+          });
+          this.video.addEventListener('pause', () => { if (this.audio) this.audio.pause(); });
+          this.video.addEventListener('seeked', () => {
+            if (this.audio && !this.audio.paused) this.audio.currentTime = this.video.currentTime;
+          });
+        }
+      });
+
+      // Open external link on click (works with cursor+raycaster)
+      AFRAME.registerComponent('open-link', {
+        schema: { url: {type: 'string'}, newTab: {type: 'boolean', default: true} },
+        init() {
+          this.onClick = () => {
+            if (!this.data.url) return;
+            try {
+              this.data.newTab ? window.open(this.data.url, '_blank') : (window.location.href = this.data.url);
+            } catch(e) { console.warn('open-link blocked:', e); }
+          };
+          this.el.addEventListener('click', this.onClick);
+        },
+        remove() { this.el.removeEventListener('click', this.onClick); }
+      });
+
+      // User-gesture audio unlocker (Chrome/iOS)
+      AFRAME.registerComponent('unmute-audio', {
+        init() {
+          const resumeAudioCtx = async () => {
+            try {
+              const AC = window.AudioContext || window.webkitAudioContext;
+              const ctx = AFRAME.audioContext || (AFRAME.audioContext = new AC());
+              if (ctx && ctx.state !== 'running' && ctx.resume) await ctx.resume();
+            } catch(e) {}
+          };
+          this.onClick = async () => {
+            await resumeAudioCtx();
+
+            const v = document.getElementById('right-video');
+            const a = document.getElementById('video-audio');
+
+            // Start the video with sound
+            if (v) {
+              try { v.muted = false; await v.play(); } catch(e) {}
+            }
+            // Also start a mirrored audio element (helps iOS/desktop)
+            if (a) {
+              try {
+                if (v) a.currentTime = v.currentTime;
+                a.muted = false;
+                await a.play();
+              } catch(e) {}
+            }
+            this.el.setAttribute('visible', false); // hide button
+          };
+          this.el.addEventListener('click', this.onClick);
+        },
+        remove(){ this.el.removeEventListener('click', this.onClick); }
+      });
+
+      // Reveal/Hide helpers (unchanged)
       function reveal(ids){
         ids.forEach(id=>{
           const el = document.querySelector(id);
@@ -72,7 +149,7 @@
         init: function (){
           const el = this.el;
 
-          // Clickable social icons
+          // Keep your original listeners
           [['#icon-insta','https://instagram.com/'],
            ['#icon-linkedin','https://www.linkedin.com/'],
            ['#icon-discord','https://discord.com/invite/'],
@@ -84,20 +161,20 @@
 
           el.addEventListener('targetFound', ()=>{
             reveal(['#icons-group','#rightcol-group','#model-group']);
-            // Play video when marker is found
             const vid = document.querySelector('#right-video');
-            if(vid) vid.play();
-            // also fade-in troika texts
+            if(vid) { vid.play().catch(()=>{}); }
+            // show troika
             const th = document.querySelector('#troika-heading');
             const ts = document.querySelector('#troika-subtitle');
-            if (th) th.emit('show');
-            if (ts) ts.emit('show');
+            if (th) th.setAttribute('visible', true);
+            if (ts) ts.setAttribute('visible', true);
           });
           el.addEventListener('targetLost', ()=>{
             conceal(['#icons-group','#rightcol-group','#model-group']);
-            // Pause video when marker is lost
             const vid = document.querySelector('#right-video');
             if(vid) vid.pause();
+            const a = document.getElementById('video-audio');
+            if (a) a.pause();
           });
         }
       });
@@ -112,7 +189,7 @@
         if(model){
           model.setAttribute("scale", `${MODEL_SCALE.x} ${MODEL_SCALE.y} ${MODEL_SCALE.z}`);
           model.setAttribute("rotation", `${MODEL_ROTATION.x} ${MODEL_ROTATION.y} ${MODEL_ROTATION.z}`);
-          model.setAttribute("animation__spin", 
+          model.setAttribute("animation__spin",
             `property: rotation; to: 0 360 0; loop: true; dur: ${SPIN_DURATION}; easing: linear`);
         }
       });
@@ -139,28 +216,38 @@
         <a-camera position="0 0 0"
                   look-controls="enabled: false"
                   cursor="fuse: false; rayOrigin: mouse;"
-                  raycaster="far: 10000; objects: .clickable">
+                  raycaster="near: 0.001; far: 10000; interval: 0; objects: .clickable">
         </a-camera>
 
         <!-- Assets: white PNG icons + video + your GLB -->
-        <a-assets>
+        <a-assets timeout="10000">
           <!-- White icons (reliable PNGs) -->
           <img id="igw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/instagram-new.png">
           <img id="liw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/linkedin.png">
           <img id="dcw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/discord-logo.png">
           <img id="waw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/whatsapp.png">
 
-          <!-- Right-side video -->
+          <!-- Right-side video (autoplay muted; unmute via the button) -->
           <video id="right-video"
                  src="./assets/right2test.mp4"
+                 crossorigin="anonymous"
+                 preload="auto"
+                 autoplay
                  loop
                  muted
                  playsinline
-                 webkit-playsinline
-                 crossorigin="anonymous"></video>
+                 webkit-playsinline></video>
+
+          <!-- Separate audio (mirrors the video; improves reliability) -->
+          <audio id="video-audio"
+                 src="./assets/right2test.mp4"
+                 preload="auto"
+                 crossorigin="anonymous"
+                 playsinline
+                 webkit-playsinline></audio>
 
           <!-- Your GLB -->
-          <a-asset-item id="userModel" src="./assets/light_bulb.glb"></a-asset-item>
+          <a-asset-item id="userModel" src="./assets/light_bulb.glb" crossorigin="anonymous"></a-asset-item>
         </a-assets>
 
         <!-- Lights -->
@@ -170,50 +257,67 @@
         <!-- Anchor to first target -->
         <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
 
-          <!-- 1) ICONS (more spacing left/right + lower) -->
+          <!-- 1) ICONS -->
           <a-entity id="icons-group" visible="false" position="0 -1.30 0.001"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
+
             <a-image id="icon-insta" class="clickable"
                      src="#igw" scale="1.4 1.4 1"
                      position="-0.60 0 0" width="0.16" height="0.16" opacity="0.95"
-                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad"
+                     open-link="url: https://instagram.com/">
             </a-image>
 
             <a-image id="icon-linkedin" class="clickable"
                      src="#liw" scale="1.4 1.4 1"
                      position="-0.20 0 0" width="0.16" height="0.16" opacity="0.95"
-                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:100">
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:100"
+                     open-link="url: https://www.linkedin.com/">
             </a-image>
 
             <a-image id="icon-discord" class="clickable"
                      src="#dcw" scale="1.4 1.4 1"
                      position="0.20 0 0" width="0.16" height="0.16" opacity="0.95"
-                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:200">
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:200"
+                     open-link="url: https://discord.com/invite/">
             </a-image>
 
             <a-image id="icon-whatsapp" class="clickable"
                      src="#waw" scale="1.4 1.4 1"
                      position="0.60 0 0" width="0.16" height="0.16" opacity="0.95"
-                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:300">
+                     animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:300"
+                     open-link="url: https://wa.me/">
             </a-image>
           </a-entity>
 
-          <!-- 2) RIGHT COLUMN (further left to increase separation from model) -->
+          <!-- 2) RIGHT COLUMN -->
           <a-entity id="rightcol-group" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
 
-
-            <!-- 16:9 Video -->
+            <!-- VIDEO (moved further right) -->
             <a-video id="right-video-entity"
                      src="#right-video"
-                     position="0.45 0.45 0"
+                     position="1.00 0.45 0"
                      width="1.60"
                      height="0.90"
                      material="shader: flat; src: #right-video; transparent: true; opacity: 0;"
-                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show">
+                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
+                     play-video>
             </a-video>
 
-            <!-- Your original A-Frame texts (kept intact) -->
+            <!-- Tap for audio -->
+            <a-plane id="tap-audio"
+                     position="1.00 -0.05 0.01"
+                     width="0.90" height="0.18"
+                     color="#000" opacity="0.55"
+                     class="clickable"
+                     unmute-audio>
+              <a-entity
+                troika-text="value: Tap for audio; anchor: center; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
+                position="0 0 0.01"></a-entity>
+            </a-plane>
+
+            <!-- Original A-Frame texts (kept, but hidden so Poppins shows) -->
             <a-text id="heading"
                     value="Making Ideas like this Happen, but how?"
                     color="#FFFFFF"
@@ -221,10 +325,9 @@
                     width="1.8"
                     position="0  -0.45 0"
                     anchor="left"
-                    opacity="0"
+                    visible="false"
                     letter-spacing="2"
-                    wrap-count="20"
-                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show">
+                    wrap-count="20">
             </a-text>
 
             <a-text id="subtitle"
@@ -234,34 +337,29 @@
                     width="1.8"
                     position="0  -0.95 0"
                     anchor="left"
-                    opacity="0"
-                    wrap-count="24"
-                    animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show">
+                    visible="false"
+                    wrap-count="24">
             </a-text>
 
-            <!-- NEW Troika text using Poppins (added; originals preserved) -->
+            <!-- Troika text (Poppins Bold + Light) -->
             <a-entity id="troika-heading"
                       troika-text="value: Making Ideas like this Happen, but how?;
-                                   anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.07;
-                                   font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
-                      position="0 -0.40 0"
-                      visible="true"
-                      opacity="0"
-                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show">
+                                   anchor: left; maxWidth: 1.8; color: #FFFFFF; fontSize: 0.09;
+                                   font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLCz7Z1xlFQ.woff2;"
+                      position="0 -0.38 0"
+                      visible="true">
             </a-entity>
 
             <a-entity id="troika-subtitle"
                       troika-text="value: Click on the icons to learn more about us!;
-                                   anchor: left; maxWidth: 1.6; color: #DDDDDD; fontSize: 0.055;
+                                   anchor: left; maxWidth: 1.8; color: #DDDDDD; fontSize: 0.065;
                                    font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
-                      position="0 -0.90 0"
-                      visible="true"
-                      opacity="0"
-                      animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show">
+                      position="0 -0.88 0"
+                      visible="true">
             </a-entity>
           </a-entity>
 
-          <!-- 3) 3D MODEL (pushed further right & down for maximum separation) -->
+          <!-- 3) 3D MODEL -->
           <a-entity id="model-group" visible="false" position="2.00 -1.50 -0.03"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
             <a-gltf-model id="mini-model"
