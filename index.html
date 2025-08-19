@@ -128,7 +128,7 @@
 
       <!-- Keep your working MindAR smoothing values -->
       <a-scene
-        mindar-image="imageTargetSrc: ./assets/targets.mind; showStats: false; uiScanning: #example-scanning-overlay; filterMinCF: 0.1; filterBeta: 10; warmupTolerance: 3; missTolerance: 3;"
+        mindar-image="imageTargetSrc: ./assets/targets.mind; showStats: false; uiScanning: #example-scanning-overlay; filterMinCF: 0.3; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 8;"
         embedded
         color-space="sRGB"
         renderer="colorManagement: true, physicallyCorrectLights, antialias: true"
@@ -150,12 +150,9 @@
           <img id="dcw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/discord-logo.png">
           <img id="waw" crossorigin="anonymous" src="https://img.icons8.com/ios-filled/100/FFFFFF/whatsapp.png">
 
-          <!-- Right-side image (kept for fallback) -->
-          <img id="side-photo" src="./assets/imagetotrack.png">
-
           <!-- Right-side video -->
           <video id="right-video"
-                 src="./assets/right.mp4"
+                 src="./assets/right2test.mp4"
                  loop
                  muted
                  playsinline
@@ -178,25 +175,25 @@
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
             <a-image id="icon-insta" class="clickable"
                      src="#igw" scale="1.4 1.4 1"
-                     position="-0.60 0 0" width="0.20" height="0.20" opacity="0.95"
+                     position="-0.60 0 0" width="0.16" height="0.16" opacity="0.95"
                      animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
             </a-image>
 
             <a-image id="icon-linkedin" class="clickable"
                      src="#liw" scale="1.4 1.4 1"
-                     position="-0.20 0 0" width="0.20" height="0.20" opacity="0.95"
+                     position="-0.20 0 0" width="0.16" height="0.16" opacity="0.95"
                      animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:100">
             </a-image>
 
             <a-image id="icon-discord" class="clickable"
                      src="#dcw" scale="1.4 1.4 1"
-                     position="0.20 0 0" width="0.20" height="0.20" opacity="0.95"
+                     position="0.20 0 0" width="0.16" height="0.16" opacity="0.95"
                      animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:200">
             </a-image>
 
             <a-image id="icon-whatsapp" class="clickable"
                      src="#waw" scale="1.4 1.4 1"
-                     position="0.60 0 0" width="0.20" height="0.20" opacity="0.95"
+                     position="0.60 0 0" width="0.16" height="0.16" opacity="0.95"
                      animation__pulse="property: scale; to: 1.1 1.1 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:300">
             </a-image>
           </a-entity>
@@ -205,20 +202,14 @@
           <a-entity id="rightcol-group" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
 
-            <a-image id="right-photo"
-                     src="#side-photo"
-                     position="0 0.45 0" width="0.60" height="0.76"
-                     material="transparent:true; opacity:0"
-                     animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show">
-            </a-image>
 
-            <!-- CROPPED/ZOOOMED VIDEO: wider+shorter plane + UV zoom/offset to remove letterbox -->
+            <!-- 16:9 Video -->
             <a-video id="right-video-entity"
                      src="#right-video"
                      position="0.45 0.45 0"
-                     width="1.00"            <!-- larger video for prominence -->
-                     height="0.56"           <!-- keep ~16:9 aspect-ish -->
-                     material="shader: flat; src: #right-video; transparent: true; opacity: 0; repeat: 1.6 1.6; offset: -0.30 -0.15"
+                     width="1.60"
+                     height="0.90"
+                     material="shader: flat; src: #right-video; transparent: true; opacity: 0;"
                      animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show">
             </a-video>
 
@@ -227,12 +218,12 @@
                     value="Making Ideas like this Happen, but how?"
                     color="#FFFFFF"
                     align="left"
-                    width="2.2"
+                    width="1.8"
                     position="0  -0.45 0"
                     anchor="left"
                     opacity="0"
                     letter-spacing="2"
-                    wrap-count="22"
+                    wrap-count="20"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show">
             </a-text>
 
@@ -240,18 +231,18 @@
                     value="Click on the icons to learn more about us!"
                     color="#EEEEEE"
                     align="left"
-                    width="2.2"
+                    width="1.8"
                     position="0  -0.95 0"
                     anchor="left"
                     opacity="0"
-                    wrap-count="28"
+                    wrap-count="24"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show">
             </a-text>
 
             <!-- NEW Troika text using Poppins (added; originals preserved) -->
             <a-entity id="troika-heading"
                       troika-text="value: Making Ideas like this Happen, but how?;
-                                   anchor: left; maxWidth: 1.8; color: #FFFFFF; fontSize: 0.08;
+                                   anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.07;
                                    font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
                       position="0 -0.40 0"
                       visible="true"
@@ -261,7 +252,7 @@
 
             <a-entity id="troika-subtitle"
                       troika-text="value: Click on the icons to learn more about us!;
-                                   anchor: left; maxWidth: 1.8; color: #DDDDDD; fontSize: 0.06;
+                                   anchor: left; maxWidth: 1.6; color: #DDDDDD; fontSize: 0.055;
                                    font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
                       position="0 -0.90 0"
                       visible="true"
