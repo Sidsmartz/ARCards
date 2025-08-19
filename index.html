@@ -105,7 +105,7 @@
         <div class="inner"><div class="scanline"></div></div>
       </div>
 
-      <!-- Use MindAR smoothing to reduce jitter (tweak if needed) -->
+      <!-- Use MindAR smoothing to reduce jitter (kept same as your working version) -->
       <a-scene
         mindar-image="imageTargetSrc: ./assets/targets.mind; showStats: false; uiScanning: #example-scanning-overlay; filterMinCF: 0.1; filterBeta: 10; warmupTolerance: 3; missTolerance: 3;"
         embedded
@@ -121,20 +121,19 @@
                   raycaster="far: 10000; objects: .clickable">
         </a-camera>
 
-        <!-- Remote assets (icons + placeholder image + small GLB) -->
+        <!-- Assets: minimal white PNG icons + your right image + your GLB -->
         <a-assets>
-          <!-- Simple Icons (SVG) -->
-          <img id="si-insta"    crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/instagram.svg">
-          <img id="si-linkedin" crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/linkedin.svg">
-          <img id="si-discord"  crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/discord.svg">
-          <img id="si-whatsapp" crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/whatsapp.svg">
+          <!-- White icons -->
+          <img id="igw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/instagram.png">
+          <img id="liw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/linkedin.png">
+          <img id="dcw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/discord.png">
+          <img id="waw" crossorigin="anonymous" src="https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/64/whatsapp.png">
 
-          <!-- Right-side preview image (placeholder) -->
-          <img id="side-photo" crossorigin="anonymous" src="https://picsum.photos/400/540">
+          <!-- Right-side image (your file is fine here too) -->
+          <img id="side-photo" src="./assets/imagetotrack.png">
 
-          <!-- Small sample GLB (Duck) -->
-          <a-asset-item id="sampleModel" crossorigin="anonymous"
-            src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"></a-asset-item>
+          <!-- Your GLB in /assets -->
+          <a-asset-item id="userModel" src="./assets/light_bulb.glb"></a-asset-item>
         </a-assets>
 
         <!-- AMBIENT + DIRECTIONAL lights for the 3D model -->
@@ -144,71 +143,64 @@
         <!-- Anchor content to the FIRST target inside targets.mind -->
         <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
 
-          <!-- NOTE: We do NOT place a plane on top of the tracked image (to keep it clean).
-               Layout guide: tracked card assumed width=0.6, height=1.0, centered at (0,0,0).
-               - Bottom edge y ≈ -0.5 → icons go at y ≈ -0.48
-               - Right edge x ≈ +0.3 → right column starts around x ≈ +0.38 -->
-
-          <!-- ===== 1) ICONS along the BOTTOM of the tracked image ===== -->
+          <!-- ===== 1) ICONS along the BOTTOM of the tracked image (now white/minimal) ===== -->
           <a-entity id="icons-group" visible="false" position="0 -0.48 0.001"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 900; easing: easeOutCubic; startEvents: show">
-            <!-- Increase spacing: four icons across the bottom -->
             <a-image id="icon-insta" class="clickable"
-                     src="#si-insta" crossorigin="anonymous"
-                     position="-0.24 0 0" width="0.12" height="0.12"
-                     material="alphaTest:0.01; color:#E1306C; transparent:true; opacity:1"
-                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
+                     src="#igw"
+                     position="-0.27 0 0" width="0.12" height="0.12"
+                     opacity="0.95"
+                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
             </a-image>
 
             <a-image id="icon-linkedin" class="clickable"
-                     src="#si-linkedin" crossorigin="anonymous"
-                     position="-0.08 0 0" width="0.12" height="0.12"
-                     material="alphaTest:0.01; color:#0A66C2; transparent:true; opacity:1"
-                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:150">
+                     src="#liw"
+                     position="-0.09 0 0" width="0.12" height="0.12"
+                     opacity="0.95"
+                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:120">
             </a-image>
 
             <a-image id="icon-discord" class="clickable"
-                     src="#si-discord" crossorigin="anonymous"
-                     position="0.08 0 0" width="0.12" height="0.12"
-                     material="alphaTest:0.01; color:#5865F2; transparent:true; opacity:1"
-                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:300">
+                     src="#dcw"
+                     position="0.09 0 0" width="0.12" height="0.12"
+                     opacity="0.95"
+                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:240">
             </a-image>
 
             <a-image id="icon-whatsapp" class="clickable"
-                     src="#si-whatsapp" crossorigin="anonymous"
-                     position="0.24 0 0" width="0.12" height="0.12"
-                     material="alphaTest:0.01; color:#25D366; transparent:true; opacity:1"
-                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:450">
+                     src="#waw"
+                     position="0.27 0 0" width="0.12" height="0.12"
+                     opacity="0.95"
+                     animation__pulse="property: scale; to: 1.08 1.08 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:360">
             </a-image>
           </a-entity>
 
           <!-- ===== 2) RIGHT COLUMN (image at top-right, heading + subtitle directly below) ===== -->
-          <!-- Place the column slightly to the right of the tracked image (x ≈ 0.38) -->
           <a-entity id="rightcol-group" visible="false" position="0.38 0 0.002"
                     animation__fade="property: scale; from: 0.8 0.8 0.8; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
-            <!-- Right-side image (not on top of the marker) -->
             <a-image id="right-photo"
-                     src="#side-photo" crossorigin="anonymous"
+                     src="#side-photo"
                      position="0 0.25 0" width="0.38" height="0.51"
                      material="transparent:true; opacity:0"
                      animation__in="property: material.opacity; from: 0; to: 1; dur: 800; easing: easeOutCubic; startEvents: show">
             </a-image>
 
-            <!-- Heading + subtitle immediately under the image -->
+            <!-- White/minimal text -->
             <a-text id="heading"
                     value="Your Main Heading"
-                    color="#111111"
+                    color="#FFFFFF"
                     align="left"
                     width="1.6"
                     position="0  -0.06 0"
                     anchor="left"
                     opacity="0"
+                    letter-spacing="2"
                     animation__in="property: opacity; from: 0; to: 1; dur: 700; delay: 150; easing: easeOutCubic; startEvents: show">
             </a-text>
 
             <a-text id="subtitle"
                     value="Concise subtitle or tagline goes here."
-                    color="#333333"
+                    color="#DDDDDD"
                     align="left"
                     width="1.6"
                     position="0  -0.16 0"
@@ -218,15 +210,15 @@
             </a-text>
           </a-entity>
 
-          <!-- ===== 3) 3D MODEL at the bottom-right (below icons & right column) ===== -->
-          <!-- Push further down (y ≈ -0.72) and to the right (x ≈ 0.50) -->
+          <!-- ===== 3) 3D MODEL at the bottom-right (slow auto-rotation) ===== -->
           <a-entity id="model-group" visible="false" position="0.50 -0.72 0.01"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 900; easing: easeOutCubic; startEvents: show">
             <a-gltf-model id="mini-model"
-                          src="#sampleModel"
-                          rotation="0 -20 0"
+                          src="#userModel"
+                          rotation="0 0 0"
                           position="0 0 0"
-                          scale="0.18 0.18 0.18">
+                          scale="0.18 0.18 0.18"
+                          animation__spin="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
             </a-gltf-model>
           </a-entity>
 
