@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+
+    <!-- A-Frame + MindAR -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+    <style>
+      html, body { margin:0; padding:0; height:100%; }
+      .example-container { position:absolute; inset:0; overflow:hidden; }
+
+      /* Vertical (portrait) scanning overlay for a vertical card */
+      #example-scanning-overlay{
+        display:flex; align-items:center; justify-content:center;
+        position:absolute; inset:0; background:transparent; z-index:2;
+      }
+      #example-scanning-overlay.hidden{ display:none; }
+      #example-scanning-overlay .inner{
+        position:relative; display:flex; align-items:center; justify-content:center;
+        width:42vw; height:72vh; max-width:360px; max-height:720px;
+        background:
+          linear-gradient(to right, white 8px, transparent 8px) 0 0,
+          linear-gradient(to right, white 8px, transparent 8px) 0 100%,
+          linear-gradient(to left,  white 8px, transparent 8px) 100% 0,
+          linear-gradient(to left,  white 8px, transparent 8px) 100% 100%,
+          linear-gradient(to bottom, white 8px, transparent 8px) 0 0,
+          linear-gradient(to bottom, white 8px, transparent 8px) 100% 0,
+          linear-gradient(to top,    white 8px, transparent 8px) 0 100%,
+          linear-gradient(to top,    white 8px, transparent 8px) 100% 100%;
+        background-repeat:no-repeat; background-size:36px 36px;
+      }
+      #example-scanning-overlay .scanline{
+        position:absolute; left:0; width:100%; height:8px; background:white; opacity:0.75;
+        animation:scan 2s linear infinite;
+      }
+      @keyframes scan{ 0%,100%{ top:0% } 50%{ top:calc(100% - 8px) } }
+    </style>
+
+    <script>
+      // Helper to show/hide & trigger fade-in animations
+      function reveal(ids){
+        ids.forEach(id=>{
+          const el = document.querySelector(id);
+          if(!el) return;
+          el.setAttribute('visible', true);
+          // fire any animations that wait for startEvents: show
+          el.emit('show');
+        });
+      }
+      function conceal(ids){
+        ids.forEach(id=>{
+          const el = document.querySelector(id);
+          if(!el) return;
+          el.setAttribute('visible', false);
+        });
+      }
+      const openNew = (url)=> window.open(url, '_blank');
+
+      AFRAME.registerComponent('mytarget', {
+        init: function (){
+          const el = this.el;
+
+          // Clickable social icons
+          ['#icon-insta','#icon-linkedin','#icon-discord','#icon-whatsapp'].forEach((sel, i)=>{
+            const node = document.querySelector(sel);
+            if(!node) return;
+            const urls = [
+              'https://instagram.com/',
+              'https://www.linkedin.com/',
+              'https://discord.com/invite/',
+              'https://wa.me/'
+            ];
+            node.addEventListener('click', ()=>openNew(urls[i]));
+          });
+
+          el.addEventListener('targetFound', ()=>{
+            reveal([
+              '#icons-group',
+              '#rightcol-group',
+              '#model-group'
+            ]);
+          });
+
+          el.addEventListener('targetLost', ()=>{
+            // keep state tidy on loss
+            conceal([
+              '#icons-group',
+              '#rightcol-group',
+              '#model-group'
+            ]);
+          });
+        }
+      });
+    </script>
+  </head>
+
+  <body>
+    <div class="example-container">
+      <!-- Portrait scanner frame -->
+      <div id="example-scanning-overlay" class="hidden">
+        <div class="inner"><div class="scanline"></div></div>
+      </div>
+
+      <!-- Use MindAR smoothing to reduce jitter (tweak if needed) -->
+      <a-scene
+        mindar-image="imageTargetSrc: ./assets/targets.mind; showStats: false; uiScanning: #example-scanning-overlay; filterMinCF: 0.1; filterBeta: 10; warmupTolerance: 3; missTolerance: 3;"
+        embedded
+        color-space="sRGB"
+        renderer="colorManagement: true, physicallyCorrectLights, antialias: true"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false">
+
+        <!-- Mouse ray for clicking -->
+        <a-camera position="0 0 0"
+                  look-controls="enabled: false"
+                  cursor="fuse: false; rayOrigin: mouse;"
+                  raycaster="far: 10000; objects: .clickable">
+        </a-camera>
+
+        <!-- Remote assets (icons + placeholder image + small GLB) -->
+        <a-assets>
+          <!-- Simple Icons (SVG) -->
+          <img id="si-insta"    crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/instagram.svg">
+          <img id="si-linkedin" crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/linkedin.svg">
+          <img id="si-discord"  crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/discord.svg">
+          <img id="si-whatsapp" crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/whatsapp.svg">
+
+          <!-- Right-side preview image (placeholder) -->
+          <img id="side-photo" crossorigin="anonymous" src="https://picsum.photos/400/540">
+
+          <!-- Small sample GLB (Duck) -->
+          <a-asset-item id="sampleModel" crossorigin="anonymous"
+            src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"></a-asset-item>
+        </a-assets>
+
+        <!-- AMBIENT + DIRECTIONAL lights for the 3D model -->
+        <a-entity light="type: ambient; intensity: 1.0"></a-entity>
+        <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
+
+        <!-- Anchor content to the FIRST target inside targets.mind -->
+        <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
+
+          <!-- NOTE: We do NOT place a plane on top of the tracked image (to keep it clean).
+               Layout guide: tracked card assumed width=0.6, height=1.0, centered at (0,0,0).
+               - Bottom edge y ≈ -0.5 → icons go at y ≈ -0.48
+               - Right edge x ≈ +0.3 → right column starts around x ≈ +0.38 -->
+
+          <!-- ===== 1) ICONS along the BOTTOM of the tracked image ===== -->
+          <a-entity id="icons-group" visible="false" position="0 -0.48 0.001"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 900; easing: easeOutCubic; startEvents: show">
+            <!-- Increase spacing: four icons across the bottom -->
+            <a-image id="icon-insta" class="clickable"
+                     src="#si-insta" crossorigin="anonymous"
+                     position="-0.24 0 0" width="0.12" height="0.12"
+                     material="alphaTest:0.01; color:#E1306C; transparent:true; opacity:1"
+                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad">
+            </a-image>
+
+            <a-image id="icon-linkedin" class="clickable"
+                     src="#si-linkedin" crossorigin="anonymous"
+                     position="-0.08 0 0" width="0.12" height="0.12"
+                     material="alphaTest:0.01; color:#0A66C2; transparent:true; opacity:1"
+                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:150">
+            </a-image>
+
+            <a-image id="icon-discord" class="clickable"
+                     src="#si-discord" crossorigin="anonymous"
+                     position="0.08 0 0" width="0.12" height="0.12"
+                     material="alphaTest:0.01; color:#5865F2; transparent:true; opacity:1"
+                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:300">
+            </a-image>
+
+            <a-image id="icon-whatsapp" class="clickable"
+                     src="#si-whatsapp" crossorigin="anonymous"
+                     position="0.24 0 0" width="0.12" height="0.12"
+                     material="alphaTest:0.01; color:#25D366; transparent:true; opacity:1"
+                     animation__pulse="property: scale; to: 1.12 1.12 1; dir: alternate; loop: true; dur: 1200; easing: easeInOutQuad; delay:450">
+            </a-image>
+          </a-entity>
+
+          <!-- ===== 2) RIGHT COLUMN (image at top-right, heading + subtitle directly below) ===== -->
+          <!-- Place the column slightly to the right of the tracked image (x ≈ 0.38) -->
+          <a-entity id="rightcol-group" visible="false" position="0.38 0 0.002"
+                    animation__fade="property: scale; from: 0.8 0.8 0.8; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
+            <!-- Right-side image (not on top of the marker) -->
+            <a-image id="right-photo"
+                     src="#side-photo" crossorigin="anonymous"
+                     position="0 0.25 0" width="0.38" height="0.51"
+                     material="transparent:true; opacity:0"
+                     animation__in="property: material.opacity; from: 0; to: 1; dur: 800; easing: easeOutCubic; startEvents: show">
+            </a-image>
+
+            <!-- Heading + subtitle immediately under the image -->
+            <a-text id="heading"
+                    value="Your Main Heading"
+                    color="#111111"
+                    align="left"
+                    width="1.6"
+                    position="0  -0.06 0"
+                    anchor="left"
+                    opacity="0"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 700; delay: 150; easing: easeOutCubic; startEvents: show">
+            </a-text>
+
+            <a-text id="subtitle"
+                    value="Concise subtitle or tagline goes here."
+                    color="#333333"
+                    align="left"
+                    width="1.6"
+                    position="0  -0.16 0"
+                    anchor="left"
+                    opacity="0"
+                    animation__in="property: opacity; from: 0; to: 1; dur: 700; delay: 300; easing: easeOutCubic; startEvents: show">
+            </a-text>
+          </a-entity>
+
+          <!-- ===== 3) 3D MODEL at the bottom-right (below icons & right column) ===== -->
+          <!-- Push further down (y ≈ -0.72) and to the right (x ≈ 0.50) -->
+          <a-entity id="model-group" visible="false" position="0.50 -0.72 0.01"
+                    animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 900; easing: easeOutCubic; startEvents: show">
+            <a-gltf-model id="mini-model"
+                          src="#sampleModel"
+                          rotation="0 -20 0"
+                          position="0 0 0"
+                          scale="0.18 0.18 0.18">
+            </a-gltf-model>
+          </a-entity>
+
+        </a-entity>
+      </a-scene>
+    </div>
+  </body>
+</html>
