@@ -80,23 +80,46 @@
 
       // Clickable link on entities
       AFRAME.registerComponent('open-link', {
-        schema: { url: {type: 'string'}, newTab: {type: 'boolean', default: true} },
+        schema: { 
+          url: {type: 'string'}, 
+          newTab: {type: 'boolean', default: true} 
+        },
         init() {
           const go = () => {
-            if (!this.data.url) return;
-            try { this.data.newTab ? window.open(this.data.url, '_blank') : (window.location.href = this.data.url); }
-            catch(e) { console.warn('open-link blocked:', e); }
+            if (!this.data.url) {
+              // Try to get URL from the attribute directly if not in data
+              const url = this.el.getAttribute('open-link')?.url || this.el.getAttribute('data-url');
+              if (!url) return;
+              this.data.url = url;
+            }
+            
+            try { 
+              if (this.data.newTab) {
+                window.open(this.data.url, '_blank');
+              } else {
+                window.location.href = this.data.url;
+              }
+            } catch(e) { 
+              console.warn('open-link blocked:', e);
+              // Fallback: Try to open in the same tab if new tab is blocked
+              if (e.name === 'SecurityError') {
+                window.location.href = this.data.url;
+              }
+            }
           };
-          this.onClick = (e)=>{ e.stopPropagation(); go(); };
-          this.onDown  = (e)=>{ e.stopPropagation(); go(); };
+          
+          this.onClick = (e) => { 
+            e.stopPropagation(); 
+            e.preventDefault();
+            go(); 
+          };
+          
           this.el.addEventListener('click', this.onClick);
-          this.el.addEventListener('touchstart', this.onDown, {passive:true});
-          this.el.addEventListener('mousedown', this.onDown);
+          this.el.addEventListener('touchstart', this.onClick, {passive: false});
         },
         remove() {
           this.el.removeEventListener('click', this.onClick);
-          this.el.removeEventListener('touchstart', this.onDown);
-          this.el.removeEventListener('mousedown', this.onDown);
+          this.el.removeEventListener('touchstart', this.onClick);
         }
       });
 
@@ -145,7 +168,7 @@
         },
         init: function (){
           const el = this.el;
-          const url = 'https://softmind.tech';
+          const url = 'https://linktr.ee/mlritcie?fbclid=PAdGRjcAMSNCpleHRuA2FlbQIxMQABp0wCJxqOdz3t1SI7hAGPFdz305aFSGIG7PonfVL6IBEGlWmixjhBTnU1tvEz_aem_kmyhfr4DDxjzGd74xhmowg';
           const groups = (this.data.groups || '#icons-group,#rightcol-group,#model-group').split(',').map(s=>s.trim());
           const vidSel = this.data.video || '#right-video';
 
@@ -210,7 +233,7 @@
     <div class="example-container">
       <!-- Footer hint -->
       <div class="footer-hint">
-        If clicking/pressing the elements doesn't work, please <a href="https://softmind.tech" target="_blank" rel="noopener noreferrer">click here</a>.
+        If clicking/pressing the elements doesn't work, please <a href="https://linktr.ee/mlritcie?fbclid=PAdGRjcAMSNCpleHRuA2FlbQIxMQABp0wCJxqOdz3t1SI7hAGPFdz305aFSGIG7PonfVL6IBEGlWmixjhBTnU1tvEz_aem_kmyhfr4DDxjzGd74xhmowg" target="_blank" rel="noopener noreferrer">click here</a>.
       </div>
 
       <!-- Portrait scanner frame -->
@@ -268,7 +291,7 @@
           <a-plane position="0 0 -0.2" width="6" height="6"
                    class="clickable"
                    material="transparent: true; opacity: 0.00001; side: double"
-                   open-link="url: https://softmind.tech; newTab: true"></a-plane>
+                   open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-plane>
 
           <!-- Icons bar (normal size) -->
           <a-entity id="icons-group-0" visible="false" position="0 -1.30 0.001"
@@ -276,23 +299,23 @@
             <a-plane src="#rounded-wide" position="0 0 -0.02" width="2.20" height="0.52"
                      class="clickable"
                      material="shader: flat; transparent: true; alphaTest: 0.01; color: #3B82F6; opacity: 0.15"
-                     open-link="url: https://softmind.tech; newTab: true"></a-plane>
+                     open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-plane>
 
             <a-image src="#igw" position="-0.36 0 0.05" width="0.20" height="0.20" opacity="0.95"
-                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #3B82F6" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#liw" position="-0.12 0 0.05" width="0.20" height="0.20" opacity="0.95"
-                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #3B82F6" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#dcw" position="0.12 0 0.05"  width="0.20" height="0.20" opacity="0.95"
-                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #3B82F6" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#waw" position="0.36 0 0.05"  width="0.20" height="0.20" opacity="0.95"
-                     material="color: #3B82F6" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #3B82F6" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
           </a-entity>
 
           <!-- Right column -->
           <a-entity id="rightcol-group-0" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
             <a-video src="#right-video-0" position="1.2 0.45 0" width="1.60" height="0.90"
-                     class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                     class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                      material="shader: flat; transparent: true; opacity: 0;"
                      animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
                      play-video></a-video>
@@ -300,25 +323,25 @@
             <a-text value="Making Ideas like this Happen, but how?" color="#FFFFFF"
                     align="left" width="1.8" position="0.4 -0.35 0" anchor="left" opacity="0"
                     letter-spacing="2" wrap-count="20"
-                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show"></a-text>
 
             <a-text value="Click/tap to learn more about us!" color="#93C5FD"
                     align="left" width="1.8" position="0.4 -0.75 0" anchor="left" opacity="0"
                     wrap-count="24"
-                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show"></a-text>
 
             <a-entity id="troika-heading-0"
                       troika-text="value: Making Ideas like this Happen, but how?; anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
                       position="0 -0.40 0" visible="true" opacity="0"
-                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                       animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show"></a-entity>
 
             <a-entity id="troika-subtitle-0"
                       troika-text="value: Click/tap to learn more about us!; anchor: left; maxWidth: 1.6; color: #93C5FD; fontSize: 0.058; font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
                       position="0 -0.90 0" visible="true" opacity="0"
-                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                       animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show"></a-entity>
           </a-entity>
 
@@ -326,7 +349,7 @@
           <a-entity id="model-group-0" visible="false" position="0 -1.05 -0.03"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
             <a-gltf-model id="mini-model-0" src="#userModel-0" position="1.25 -0.55 0" scale="0.28 0.28 0.28" rotation="0 0 0"
-                          class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-gltf-model>
+                          class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-gltf-model>
           </a-entity>
         </a-entity>
 
@@ -336,29 +359,29 @@
 
           <a-plane position="0 0 -0.2" width="6" height="6"
                    class="clickable" material="transparent: true; opacity: 0.00001; side: double"
-                   open-link="url: https://softmind.tech; newTab: true"></a-plane>
+                   open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-plane>
 
           <a-entity id="icons-group-1" visible="false" position="0 -1.30 0.001"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
             <a-plane src="#rounded-wide" position="0 0 -0.02" width="2.20" height="0.52"
                      class="clickable"
                      material="shader: flat; transparent: true; alphaTest: 0.01; color: #EF4444; opacity: 0.15"
-                     open-link="url: https://softmind.tech; newTab: true"></a-plane>
+                     open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-plane>
 
             <a-image src="#igw" position="-0.36 0 0.05" width="0.20" height="0.20" opacity="0.95"
-                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #EF4444" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#liw" position="-0.12 0 0.05" width="0.20" height="0.20" opacity="0.95"
-                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #EF4444" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#dcw" position="0.12 0 0.05"  width="0.20" height="0.20" opacity="0.95"
-                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #EF4444" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#waw" position="0.36 0 0.05"  width="0.20" height="0.20" opacity="0.95"
-                     material="color: #EF4444" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #EF4444" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
           </a-entity>
 
           <a-entity id="rightcol-group-1" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
             <a-video src="#right-video-1" position="1.2 0.45 0" width="1.60" height="0.90"
-                     class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                     class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                      material="shader: flat; transparent: true; opacity: 0;"
                      animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
                      play-video></a-video>
@@ -366,32 +389,32 @@
             <a-text value="Making Ideas like this Happen, but how?" color="#FFFFFF"
                     align="left" width="1.8" position="0.4 -0.35 0" anchor="left" opacity="0"
                     letter-spacing="2" wrap-count="20"
-                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show"></a-text>
 
             <a-text value="Click/tap icons to learn more about us!" color="#FCA5A5"
                     align="left" width="1.8" position="0.4 -0.75 0" anchor="left" opacity="0"
                     wrap-count="24"
-                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show"></a-text>
 
             <a-entity id="troika-heading-1"
                       troika-text="value: Making Ideas like this Happen, but how?; anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
                       position="0 -0.40 0" visible="true" opacity="0"
-                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                       animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show"></a-entity>
 
             <a-entity id="troika-subtitle-1"
                       troika-text="value: Click/tap to learn more about us!; anchor: left; maxWidth: 1.6; color: #FCA5A5; fontSize: 0.058; font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
                       position="0 -0.90 0" visible="true" opacity="0"
-                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                       animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show"></a-entity>
           </a-entity>
 
           <a-entity id="model-group-1" visible="false" position="0 -1.05 -0.03"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
             <a-gltf-model id="mini-model-1" src="#userModel-1" position="1.5 -0.55 0" scale="0.28 0.28 0.28" rotation="0 0 0"
-                          class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-gltf-model>
+                          class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-gltf-model>
           </a-entity>
         </a-entity>
 
@@ -401,29 +424,29 @@
 
           <a-plane position="0 0 -0.2" width="6" height="6"
                    class="clickable" material="transparent: true; opacity: 0.00001; side: double"
-                   open-link="url: https://softmind.tech; newTab: true"></a-plane>
+                   open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-plane>
 
           <a-entity id="icons-group-2" visible="false" position="0 -1.30 0.001"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 700; easing: easeOutCubic; startEvents: show">
             <a-plane src="#rounded-wide" position="0 0 -0.02" width="2.20" height="0.52"
                      class="clickable"
                      material="shader: flat; transparent: true; alphaTest: 0.01; color: #F97316; opacity: 0.15"
-                     open-link="url: https://softmind.tech; newTab: true"></a-plane>
+                     open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-plane>
 
             <a-image src="#igw" position="-0.36 0 0.05" width="0.20" height="0.20" opacity="0.95"
-                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #F97316" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#liw" position="-0.12 0 0.05" width="0.20" height="0.20" opacity="0.95"
-                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #F97316" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#dcw" position="0.12 0 0.05"  width="0.20" height="0.20" opacity="0.95"
-                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #F97316" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
             <a-image src="#waw" position="0.36 0 0.05"  width="0.20" height="0.20" opacity="0.95"
-                     material="color: #F97316" class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-image>
+                     material="color: #F97316" class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-image>
           </a-entity>
 
           <a-entity id="rightcol-group-2" visible="false" position="0.30 0 -0.02"
                     animation__fade="property: scale; from: 0.9 0.9 0.9; to: 1 1 1; dur: 600; easing: easeOutCubic; startEvents: show">
             <a-video src="#right-video-2" position="1.2 0.45 0" width="1.60" height="0.90"
-                     class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                     class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                      material="shader: flat; transparent: true; opacity: 0;"
                      animation__in="property: material.opacity; from: 0; to: 1; dur: 600; easing: easeOutCubic; startEvents: show"
                      play-video></a-video>
@@ -431,32 +454,32 @@
             <a-text value="Making Ideas like this Happen, but how?" color="#FFFFFF"
                     align="left" width="1.8" position="0.4 -0.35 0" anchor="left" opacity="0"
                     letter-spacing="2" wrap-count="20"
-                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 120; easing: easeOutCubic; startEvents: show"></a-text>
 
             <a-text value="Click /tap to learn more about us!" color="FDBA74"
                     align="left" width="1.8" position="0.4 -0.75 0" anchor="left" opacity="0"
                     wrap-count="24"
-                    class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                    class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                     animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 240; easing: easeOutCubic; startEvents: show"></a-text>
 
             <a-entity id="troika-heading-2"
                       troika-text="value: Making Ideas like this Happen, but how?; anchor: left; maxWidth: 1.6; color: #FFFFFF; fontSize: 0.075; font: https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2;"
                       position="0 -0.40 0" visible="true" opacity="0"
-                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                       animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 100; easing: easeOutCubic; startEvents: show"></a-entity>
 
             <a-entity id="troika-subtitle-2"
                       troika-text="value: Click /tap to learn more about us!; anchor: left; maxWidth: 1.6; color: #FDBA74; fontSize: 0.058; font: https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJLucXtAKPY.woff2;"
                       position="0 -0.90 0" visible="true" opacity="0"
-                      class="clickable" open-link="url: https://softmind.tech; newTab: true"
+                      class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"
                       animation__in="property: opacity; from: 0; to: 1; dur: 600; delay: 220; easing: easeOutCubic; startEvents: show"></a-entity>
           </a-entity>
 
           <a-entity id="model-group-2" visible="false" position="0 -1.05 -0.03"
                     animation__fade="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutCubic; startEvents: show">
-            <a-gltf-model id="mini-model-2" src="#userModel-2" position="1.6 -0.45 0" scale="0.16 0.16 0.16" rotation="0 0 0"
-                          class="clickable" open-link="url: https://softmind.tech; newTab: true"></a-gltf-model>
+            <a-gltf-model id="mini-model-2" src="#userModel-2" position="1. -0.45 0" scale="0.16 0.16 0.16" rotation="0 0 0"
+                          class="clickable" open-link="url: https://linktr.ee/mlritcie; newTab: true" data-url="https://linktr.ee/mlritcie"></a-gltf-model>
           </a-entity>
         </a-entity>
 
